@@ -98,7 +98,7 @@ public class NettyHttpClientErrorHandlingTest {
             assertThat(httpResponse, is(
                     response()
                             .withStatusCode(200)
-                            .withHeader(header(HOST, "localhost:" + freePort))
+                            .withHeader(header(HOST, "127.0.0.1:" + freePort))
                             .withHeader(header(CONTENT_LENGTH, "this is an example body".length() / 2))
                             .withHeader(header(ACCEPT_ENCODING, HttpHeaders.Values.GZIP + "," + HttpHeaders.Values.DEFLATE))
                             .withHeader(header(CONNECTION, HttpHeaders.Values.KEEP_ALIVE))

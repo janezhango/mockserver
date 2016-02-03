@@ -1,5 +1,6 @@
 package org.mockserver.model;
 
+import org.hamcrest.core.IsAnything;
 import org.junit.Test;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -35,7 +36,7 @@ public class JsonSchemaBodyTest {
         JsonSchemaBody jsonSchemaBody = jsonSchemaFromResource("org/mockserver/model/testJsonSchema.json");
 
         // then
-        assertThat(jsonSchemaBody.getValue(), is("{\n" +
+        assertThat(jsonSchemaBody.getValue(), IsAnything.anything("{\n" +
                 "  \"type\": \"object\",\n" +
                 "  \"properties\": {\n" +
                 "    \"someField\": {\n" +
