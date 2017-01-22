@@ -15,7 +15,7 @@ import org.mockserver.client.serialization.HttpRequestSerializer;
 import org.mockserver.client.serialization.VerificationSequenceSerializer;
 import org.mockserver.client.serialization.VerificationSerializer;
 import org.mockserver.configuration.ConfigurationProperties;
-import org.mockserver.filters.LogFilter;
+import org.mockserver.filters.RequestLogFilter;
 import org.mockserver.matchers.TimeToLive;
 import org.mockserver.matchers.Times;
 import org.mockserver.mock.Expectation;
@@ -43,85 +43,7 @@ import static org.mockserver.model.HttpResponse.response;
 /**
  * @author jamesdbloom
  */
-public class MockServerHandlerGeneralOperationsTest {
-
-    // model objects
-    @Mock
-    private Expectation mockExpectation;
-    @Mock
-    private HttpRequest mockHttpRequest;
-    @Mock
-    private HttpResponse mockHttpResponse;
-    @Mock
-    private HttpForward mockHttpForward;
-    @Mock
-    private HttpError mockHttpError;
-    @Mock
-    private HttpCallback mockHttpCallback;
-    @Mock
-    private Verification mockVerification;
-    @Mock
-    private VerificationSequence mockVerificationSequence;
-    // mockserver
-    private LogFilter mockLogFilter;
-    private MockServerMatcher mockMockServerMatcher;
-    private MockServer mockMockServer;
-    @Mock
-    private ActionHandler mockActionHandler;
-    // serializers
-    @Mock
-    private ExpectationSerializer mockExpectationSerializer;
-    @Mock
-    private HttpRequestSerializer mockHttpRequestSerializer;
-    @Mock
-    private VerificationSerializer mockVerificationSerializer;
-    @Mock
-    private VerificationSequenceSerializer mockVerificationSequenceSerializer;
-    // netty
-    @Mock
-    private ChannelHandlerContext mockChannelHandlerContext;
-
-    @InjectMocks
-    private MockServerHandler mockServerHandler;
-    private EmbeddedChannel embeddedChannel;
-
-    @Before
-    public void setupFixture() {
-        // given - a mock server handler
-        mockLogFilter = mock(LogFilter.class);
-        mockMockServerMatcher = mock(MockServerMatcher.class);
-        mockMockServer = mock(MockServer.class);
-        mockServerHandler = new MockServerHandler(mockMockServer, mockMockServerMatcher, mockLogFilter);
-        embeddedChannel = new EmbeddedChannel(mockServerHandler);
-
-        initMocks(this);
-
-        // given - serializers
-        when(mockExpectationSerializer.deserialize(anyString())).thenReturn(mockExpectation);
-        when(mockHttpRequestSerializer.deserialize(anyString())).thenReturn(mockHttpRequest);
-        when(mockVerificationSerializer.deserialize(anyString())).thenReturn(mockVerification);
-        when(mockVerificationSequenceSerializer.deserialize(anyString())).thenReturn(mockVerificationSequence);
-
-        // given - an expectation that can be setup
-        when(mockMockServerMatcher.when(any(HttpRequest.class), any(Times.class), any(TimeToLive.class))).thenReturn(mockExpectation);
-        when(mockExpectation.thenRespond(any(HttpResponse.class))).thenReturn(mockExpectation);
-        when(mockExpectation.thenForward(any(HttpForward.class))).thenReturn(mockExpectation);
-        when(mockExpectation.thenError(any(HttpError.class))).thenReturn(mockExpectation);
-        when(mockExpectation.thenCallback(any(HttpCallback.class))).thenReturn(mockExpectation);
-
-        // given - an expectation that has been setup
-        when(mockExpectation.getHttpRequest()).thenReturn(mockHttpRequest);
-        when(mockExpectation.getTimes()).thenReturn(Times.once());
-        when(mockExpectation.getHttpResponse(anyBoolean())).thenReturn(mockHttpResponse);
-        when(mockExpectation.getHttpForward()).thenReturn(mockHttpForward);
-        when(mockExpectation.getHttpError()).thenReturn(mockHttpError);
-        when(mockExpectation.getHttpCallback()).thenReturn(mockHttpCallback);
-    }
-
-    @After
-    public void closeEmbeddedChanel() {
-        assertThat(embeddedChannel.finish(), is(false));
-    }
+public class MockServerHandlerGeneralOperationsTest extends MockServerHandlerTest {
 
     @Test
     public void shouldResetExpectations() {
@@ -132,7 +54,7 @@ public class MockServerHandlerGeneralOperationsTest {
         embeddedChannel.writeInbound(request);
 
         // then - filter and matcher is reset
-        verify(mockLogFilter).reset();
+        verify(mockRequestLogFilter).reset();
         verify(mockMockServerMatcher).reset();
 
         // and - correct response written to ChannelHandlerContext
@@ -142,7 +64,49 @@ public class MockServerHandlerGeneralOperationsTest {
     }
 
     @Test
-    public void shouldClearExpectations() {
+    public void shouldClearExpectationsOnly() {
+        // given
+        HttpRequest request = request("/clear").withQueryStringParameter("type", "expectation").withMethod("PUT").withBody("some_content");
+
+        // when
+        embeddedChannel.writeInbound(request);
+
+        // then - request deserialized
+        verify(mockHttpRequestSerializer).deserialize("some_content");
+
+        // then - only matcher is cleared
+        verifyNoMoreInteractions(mockRequestLogFilter);
+        verify(mockMockServerMatcher).clear(mockHttpRequest);
+
+        // and - correct response written to ChannelHandlerContext
+        HttpResponse httpResponse = (HttpResponse) embeddedChannel.readOutbound();
+        assertThat(httpResponse.getStatusCode(), is(HttpResponseStatus.ACCEPTED.code()));
+        assertThat(httpResponse.getBodyAsString(), is(""));
+    }
+
+    @Test
+    public void shouldClearLogsOnly() {
+        // given
+        HttpRequest request = request("/clear").withQueryStringParameter("type", "log").withMethod("PUT").withBody("some_content");
+
+        // when
+        embeddedChannel.writeInbound(request);
+
+        // then - request deserialized
+        verify(mockHttpRequestSerializer).deserialize("some_content");
+
+        // then - only filter is cleared
+        verify(mockRequestLogFilter).clear(mockHttpRequest);
+        verifyNoMoreInteractions(mockMockServerMatcher);
+
+        // and - correct response written to ChannelHandlerContext
+        HttpResponse httpResponse = (HttpResponse) embeddedChannel.readOutbound();
+        assertThat(httpResponse.getStatusCode(), is(HttpResponseStatus.ACCEPTED.code()));
+        assertThat(httpResponse.getBodyAsString(), is(""));
+    }
+
+    @Test
+    public void shouldClearExpectationsAndLogs() {
         // given
         HttpRequest request = request("/clear").withMethod("PUT").withBody("some_content");
 
@@ -153,7 +117,7 @@ public class MockServerHandlerGeneralOperationsTest {
         verify(mockHttpRequestSerializer).deserialize("some_content");
 
         // then - filter and matcher is cleared
-        verify(mockLogFilter).clear(mockHttpRequest);
+        verify(mockRequestLogFilter).clear(mockHttpRequest);
         verify(mockMockServerMatcher).clear(mockHttpRequest);
 
         // and - correct response written to ChannelHandlerContext
@@ -237,7 +201,7 @@ public class MockServerHandlerGeneralOperationsTest {
     public void shouldReturnRecordedRequests() {
         // given
         HttpRequest[] requests = {};
-        when(mockLogFilter.retrieve(mockHttpRequest)).thenReturn(requests);
+        when(mockRequestLogFilter.retrieve(mockHttpRequest)).thenReturn(requests);
         when(mockHttpRequestSerializer.serialize(requests)).thenReturn("requests");
         HttpRequest request = request("/retrieve").withMethod("PUT").withBody("some_content");
 
@@ -248,7 +212,7 @@ public class MockServerHandlerGeneralOperationsTest {
         verify(mockHttpRequestSerializer).deserialize("some_content");
 
         // then - matching requests should be retrieved
-        verify(mockLogFilter).retrieve(mockHttpRequest);
+        verify(mockRequestLogFilter).retrieve(mockHttpRequest);
 
         // and - correct response written to ChannelHandlerContext
         HttpResponse httpResponse = (HttpResponse) embeddedChannel.readOutbound();
@@ -338,14 +302,13 @@ public class MockServerHandlerGeneralOperationsTest {
         assertThat(httpResponse.getStatusCode(), is(HttpResponseStatus.PAYMENT_REQUIRED.code()));
         assertThat(httpResponse.getBodyAsString(), is("some_content"));
         assertThat(httpResponse.getHeader("Connection"), containsInAnyOrder("close"));
-        assertThat(httpResponse.getHeader("Content-Length"), containsInAnyOrder(Integer.toString("some_content".getBytes(Charsets.UTF_8).length)));
         assertThat(httpResponse.getBodyAsString(), is("some_content"));
     }
 
     @Test
     public void shouldVerifyPassingRequest() {
         // given
-        when(mockLogFilter.verify(any(Verification.class))).thenReturn("");
+        when(mockRequestLogFilter.verify(any(Verification.class))).thenReturn("");
 
         // and - a request
         HttpRequest request = request("/verify").withMethod("PUT").withBody("some_content");
@@ -357,7 +320,7 @@ public class MockServerHandlerGeneralOperationsTest {
         verify(mockVerificationSerializer).deserialize("some_content");
 
         // and - log filter called
-        verify(mockLogFilter).verify(mockVerification);
+        verify(mockRequestLogFilter).verify(mockVerification);
 
         // and - correct response written to ChannelHandlerContext
         HttpResponse httpResponse = (HttpResponse) embeddedChannel.readOutbound();
@@ -368,7 +331,7 @@ public class MockServerHandlerGeneralOperationsTest {
     @Test
     public void shouldVerifyFailingRequest() {
         // given
-        when(mockLogFilter.verify(any(Verification.class))).thenReturn("failure response");
+        when(mockRequestLogFilter.verify(any(Verification.class))).thenReturn("failure response");
 
         // and - a request
         HttpRequest request = request("/verify").withMethod("PUT").withBody("some_content");
@@ -380,7 +343,7 @@ public class MockServerHandlerGeneralOperationsTest {
         verify(mockVerificationSerializer).deserialize("some_content");
 
         // and - log filter called
-        verify(mockLogFilter).verify(mockVerification);
+        verify(mockRequestLogFilter).verify(mockVerification);
 
         // and - correct response written to ChannelHandlerContext
         HttpResponse httpResponse = (HttpResponse) embeddedChannel.readOutbound();
@@ -391,7 +354,7 @@ public class MockServerHandlerGeneralOperationsTest {
     @Test
     public void shouldVerifySequencePassingRequest() {
         // given
-        when(mockLogFilter.verify(any(VerificationSequence.class))).thenReturn("");
+        when(mockRequestLogFilter.verify(any(VerificationSequence.class))).thenReturn("");
 
         // and - a request
         HttpRequest request = request("/verifySequence").withMethod("PUT").withBody("some_content");
@@ -403,7 +366,7 @@ public class MockServerHandlerGeneralOperationsTest {
         verify(mockVerificationSequenceSerializer).deserialize("some_content");
 
         // and - log filter called
-        verify(mockLogFilter).verify(mockVerificationSequence);
+        verify(mockRequestLogFilter).verify(mockVerificationSequence);
 
         // and - correct response written to ChannelHandlerContext
         HttpResponse httpResponse = (HttpResponse) embeddedChannel.readOutbound();
@@ -414,7 +377,7 @@ public class MockServerHandlerGeneralOperationsTest {
     @Test
     public void shouldVerifySequenceFailingRequest() {
         // given
-        when(mockLogFilter.verify(any(VerificationSequence.class))).thenReturn("failure response");
+        when(mockRequestLogFilter.verify(any(VerificationSequence.class))).thenReturn("failure response");
 
         // and - a request
         HttpRequest request = request("/verifySequence").withMethod("PUT").withBody("some_content");
@@ -426,7 +389,7 @@ public class MockServerHandlerGeneralOperationsTest {
         verify(mockVerificationSequenceSerializer).deserialize("some_content");
 
         // and - log filter called
-        verify(mockLogFilter).verify(mockVerificationSequence);
+        verify(mockRequestLogFilter).verify(mockVerificationSequence);
 
         // and - correct response written to ChannelHandlerContext
         HttpResponse httpResponse = (HttpResponse) embeddedChannel.readOutbound();

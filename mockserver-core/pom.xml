@@ -3,7 +3,7 @@
     <parent>
         <groupId>org.mock-server</groupId>
         <artifactId>mockserver</artifactId>
-        <version>3.10.3-SNAPSHOT</version>
+        <version>3.10.5-SNAPSHOT</version>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
@@ -87,6 +87,12 @@
         <dependency>
             <groupId>com.github.fge</groupId>
             <artifactId>json-schema-validator</artifactId>
+        </dependency>
+
+        <!-- xml -->
+        <dependency>
+            <groupId>xerces</groupId>
+            <artifactId>xerces</artifactId>
         </dependency>
 
         <!-- commons & guava -->

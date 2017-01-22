@@ -14,7 +14,7 @@ module MockServer::Model
   # Enum for HTTP methods
   class HTTPMethod < SymbolizedEnum
     def allowed_values
-      [:GET, :POST, :PUT, :DELETE]
+      [:GET, :POST, :PUT, :DELETE, :PATCH]
     end
   end
 
@@ -24,7 +24,7 @@ module MockServer::Model
     include Hashie::Extensions::IgnoreUndeclared
     include Hashie::Extensions::Coercion
 
-    ALLOWED_METHODS = [:GET, :POST, :PUT, :DELETE]
+    ALLOWED_METHODS = [:GET, :POST, :PUT, :DELETE, :PATCH]
 
     property :method, required: true, default: :GET
     property :path, required: true, default: ''
@@ -32,9 +32,12 @@ module MockServer::Model
     property :cookies, default: Cookies.new([])
     property :headers, default: Headers.new([])
     property :body, transform_with: (lambda do |body|
-      is_base_64_body = body && body.type == :BINARY
-      body_value = is_base_64_body ? Base64.decode64(body.value) : body.value
-      Body.new(type: :STRING, value: body_value)
+      if body && body.type.to_s == 'BINARY'
+        body.type = :STRING
+        body.value = Base64.decode64(body.value)
+      end
+
+      body
     end)
 
     coerce_key :method, HTTPMethod
@@ -71,6 +74,12 @@ module MockServer::Model
     end
 
     def request_from_json(payload)
+      body = payload['body']
+
+      if body && body.is_a?(String)
+        payload.merge!('body' => { 'type' => :STRING, 'value' => body })
+      end
+
       request = Request.new(symbolize_keys(payload))
       yield request if block_given?
       request

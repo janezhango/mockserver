@@ -21,7 +21,13 @@ import org.mockserver.model.*;
  */
 public class ObjectMapperFactory {
 
+    private static final ObjectMapper OBJECT_MAPPER = buildObjectMapper();
+
     public static ObjectMapper createObjectMapper() {
+        return OBJECT_MAPPER;
+    }
+
+    private static ObjectMapper buildObjectMapper() {
         ObjectMapper objectMapper = new ObjectMapper();
 
         // ignore failures
@@ -48,15 +54,13 @@ public class ObjectMapperFactory {
         objectMapper.setSerializationInclusion(JsonInclude.Include.NON_EMPTY);
 
         // register our own module with our serializers and deserializers
-        Module gameServerModule = new Module();
-        objectMapper.registerModule(gameServerModule);
-
+        objectMapper.registerModule(new Module());
         return objectMapper;
     }
 
     private static class Module extends SimpleModule {
 
-        public Module() {
+        Module() {
             // request
             addSerializer(HttpRequest.class, new org.mockserver.client.serialization.serializers.request.HttpRequestSerializer());
             addSerializer(HttpRequestDTO.class, new HttpRequestDTOSerializer());
@@ -64,6 +68,8 @@ public class ObjectMapperFactory {
             addDeserializer(BodyDTO.class, new BodyDTODeserializer());
             addSerializer(StringBodyDTO.class, new StringBodyDTOSerializer());
             addSerializer(StringBody.class, new StringBodySerializer());
+            addSerializer(BinaryBodyDTO.class, new BinaryBodyDTOSerializer());
+            addSerializer(BinaryBody.class, new BinaryBodySerializer());
             addSerializer(RegexBodyDTO.class, new RegexBodyDTOSerializer());
             addSerializer(RegexBody.class, new RegexBodySerializer());
             addSerializer(JsonBodyDTO.class, new JsonBodyDTOSerializer());
@@ -72,6 +78,8 @@ public class ObjectMapperFactory {
             addSerializer(JsonSchemaBody.class, new JsonSchemaBodySerializer());
             addSerializer(XPathBodyDTO.class, new XPathBodyDTOSerializer());
             addSerializer(XPathBody.class, new XPathBodySerializer());
+            addSerializer(XmlBodyDTO.class, new XmlBodyDTOSerializer());
+            addSerializer(XmlBody.class, new XmlBodySerializer());
             addSerializer(ParameterBodyDTO.class, new ParameterBodyDTOSerializer());
             addSerializer(ParameterBody.class, new ParameterBodySerializer());
             // nottable string
